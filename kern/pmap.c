@@ -85,7 +85,6 @@ static void *
 boot_alloc(uint32_t n)
 {
 	static char *nextfree;	// virtual address of next byte of free memory
-	static uint32_t allocated_page_count;
 	char *result;
 
 	// Initialize nextfree if this is the first time.
@@ -96,7 +95,6 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
-		allocated_page_count = 0;
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update
@@ -104,13 +102,8 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-
 	result = nextfree;
 	uint32_t size = ROUNDUP(n, PGSIZE);
-	allocated_page_count += size / PGSIZE;
-	if (allocated_page_count > npages) {
-		panic("boot allocated failed. out of memory.");
-	}
 	nextfree += size;
 
 	return result;
@@ -135,7 +128,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	// panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -158,7 +151,8 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-
+	pages = boot_alloc(npages * sizeof(struct PageInfo));
+	memset(pages, 0, npages * sizeof(struct PageInfo));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -167,7 +161,6 @@ mem_init(void)
 	// particular, we can now map memory using boot_map_region
 	// or page_insert
 	page_init();
-
 	check_page_free_list(1);
 	check_page_alloc();
 	check_page();
@@ -261,8 +254,15 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
+	uint32_t next_free = (uint32_t) boot_alloc(0);
+	page_free_list = NULL;
 	size_t i;
-	for (i = 0; i < npages; i++) {
+	for (i = 1; i < IOPHYSMEM / PGSIZE; i++) {
+		pages[i].pp_ref = 0;
+		pages[i].pp_link = page_free_list;
+		page_free_list = &pages[i];
+	}
+	for (i = (next_free - KERNBASE) / PGSIZE; i < npages; i++) {
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
@@ -284,8 +284,16 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	return 0;
+	if (page_free_list == NULL) {
+		return NULL;
+	}
+	struct PageInfo *free_page = page_free_list;
+	page_free_list = free_page->pp_link;
+	free_page->pp_link = NULL;
+	if (alloc_flags & ALLOC_ZERO) {
+		memset((void*) ((free_page - pages) * PGSIZE + KERNBASE), 0, PGSIZE);
+	}
+	return free_page;
 }
 
 //
@@ -298,6 +306,11 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	if (pp->pp_ref != 0 || pp->pp_link != NULL) {
+		panic("pp_ref != 0 or pp_link is not NULL");
+	}
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
 }
 
 //
@@ -523,7 +536,6 @@ check_page_alloc(void)
 	// check number of free pages
 	for (pp = page_free_list, nfree = 0; pp; pp = pp->pp_link)
 		++nfree;
-
 	// should be able to allocate three pages
 	pp0 = pp1 = pp2 = 0;
 	assert((pp0 = page_alloc(0)));
@@ -536,11 +548,10 @@ check_page_alloc(void)
 	assert(page2pa(pp0) < npages*PGSIZE);
 	assert(page2pa(pp1) < npages*PGSIZE);
 	assert(page2pa(pp2) < npages*PGSIZE);
-
 	// temporarily steal the rest of the free pages
 	fl = page_free_list;
 	page_free_list = 0;
-
+	
 	// should be no free memory
 	assert(!page_alloc(0));
 
@@ -556,7 +567,6 @@ check_page_alloc(void)
 	assert(pp1 && pp1 != pp0);
 	assert(pp2 && pp2 != pp1 && pp2 != pp0);
 	assert(!page_alloc(0));
-
 	// test flags
 	memset(page2kva(pp0), 1, PGSIZE);
 	page_free(pp0);
