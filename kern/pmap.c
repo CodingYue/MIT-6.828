@@ -85,6 +85,7 @@ static void *
 boot_alloc(uint32_t n)
 {
 	static char *nextfree;	// virtual address of next byte of free memory
+	static uint32_t allocated_page_count;
 	char *result;
 
 	// Initialize nextfree if this is the first time.
@@ -95,6 +96,7 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
+		allocated_page_count = 0;
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update
@@ -103,7 +105,15 @@ boot_alloc(uint32_t n)
 	//
 	// LAB 2: Your code here.
 
-	return NULL;
+	result = nextfree;
+	uint32_t size = ROUNDUP(n, PGSIZE);
+	allocated_page_count += size / PGSIZE;
+	if (allocated_page_count > npages) {
+		panic("boot allocated failed. out of memory.");
+	}
+	nextfree += size;
+
+	return result;
 }
 
 // Set up a two-level page table:
