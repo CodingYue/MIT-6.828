@@ -359,7 +359,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 				return NULL;
 			}
 			page->pp_ref++;
-			*pde = page2pa(page) | PTE_P | PTE_W;
+			*pde = page2pa(page) | PTE_P | PTE_W | PTE_U;
 		}
 	}
 	struct PageInfo *page = pa2page(*pde); 
@@ -423,13 +423,13 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	if (pte == NULL) {
 		return -E_NO_MEM;
 	}
+
+	pp->pp_ref++;
 	if (*pte & 1) {
 		page_remove(pgdir, va);
 	}
-	page2pa(pp);
 
 	*pte = page2pa(pp) | perm | PTE_P;
-	pp->pp_ref++;
 
 	return 0;
 }
