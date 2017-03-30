@@ -86,6 +86,13 @@ trap(struct trapframe *tf)
               tf->trapno, cpunum(), tf->eip, rcr2());
       panic("trap");
     }
+    if (tf->trapno == T_PGFLT && proc->sz >= rcr2()) {
+      int current_size = PGROUNDDOWN(rcr2());
+      int sz = allocuvm(proc->pgdir, current_size, current_size + PGSIZE);
+      if (sz != 0) {
+        break;
+      }
+    }
     // In user space, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
