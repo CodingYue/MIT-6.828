@@ -98,6 +98,7 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
+extern int sys_date(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -121,32 +122,34 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_date]    sys_date,
 };
 
-const static char* syscalls_str[] = {
-  "\0",
-  "fork\0",
-  "exit\0",
-  "wait\0",
-  "pipe\0",
-  "read\0",
-  "kill\0",
-  "exec\0",
-  "fstat\0",
-  "chdir\0",
-  "dup\0",
-  "getpid\0",
-  "sbrk\0",
-  "sleep\0",
-  "uptime\0",
-  "open\0",
-  "write\0",
-  "mknod\0",
-  "unlink\0",
-  "link\0",
-  "mkdir\0",
-  "close\0"
-};
+// const static char* syscalls_str[] = {
+//   "",
+//   "fork",
+//   "exit",
+//   "wait",
+//   "pipe",
+//   "read",
+//   "kill",
+//   "exec",
+//   "fstat",
+//   "chdir",
+//   "dup",
+//   "getpid",
+//   "sbrk",
+//   "sleep",
+//   "uptime",
+//   "open",
+//   "write",
+//   "mknod",
+//   "unlink",
+//   "link",
+//   "mkdir",
+//   "close",
+//   "date"
+// };
 
 void
 syscall(void)
@@ -155,7 +158,6 @@ syscall(void)
   num = proc->tf->eax;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     proc->tf->eax = syscalls[num]();
-    cprintf("%s -> %d\n", syscalls_str[num], proc->tf->eax);
   } else {
     cprintf("%d %s: unknown sys call %d\n",
             proc->pid, proc->name, num);
