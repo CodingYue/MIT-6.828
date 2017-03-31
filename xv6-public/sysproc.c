@@ -115,7 +115,6 @@ sys_alarm(void)
     return -1;
   proc->alarmticks = ticks;
   proc->alarmhandler = handler;
-  cprintf("periodic %x\n", handler);
   proc->ticks = 0;
   return 0;
 }

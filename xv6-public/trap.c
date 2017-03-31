@@ -57,9 +57,11 @@ trap(struct trapframe *tf)
     // alarm tick judge.
     if(proc && (tf->cs & 3) == 3) {
       proc->ticks++;
-      if (proc->alarmhandler && proc->ticks == proc->alarmticks) {
-        cprintf("invoke handler %x\n", proc->alarmhandler);
-        proc->alarmhandler();
+      if (proc->alarmhandler && proc->ticks >= proc->alarmticks) {
+        proc->ticks -= proc->alarmticks;
+        tf->esp -= 4;
+        *((uint*) tf->esp) = tf->eip;
+        tf->eip = (uint) proc->alarmhandler;
       }
     }
     lapiceoi();
