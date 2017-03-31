@@ -54,6 +54,14 @@ trap(struct trapframe *tf)
       wakeup(&ticks);
       release(&tickslock);
     }
+    // alarm tick judge.
+    if(proc && (tf->cs & 3) == 3) {
+      proc->ticks++;
+      if (proc->alarmhandler && proc->ticks == proc->alarmticks) {
+        cprintf("invoke handler %x\n", proc->alarmhandler);
+        proc->alarmhandler();
+      }
+    }
     lapiceoi();
     break;
   case T_IRQ0 + IRQ_IDE:
