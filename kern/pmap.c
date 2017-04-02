@@ -379,7 +379,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		if (!create) {
 			return NULL;
 		} else {
-			struct PageInfo *page = page_alloc(1);
+			struct PageInfo *page = page_alloc(ALLOC_ZERO);
 			if (page == NULL) {
 				return NULL;
 			}
