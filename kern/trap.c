@@ -151,6 +151,13 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
+	switch (tf->tf_trapno) {
+		case T_PGFLT:
+			page_fault_handler(tf);
+			return;
+		default:
+		break;
+	}
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {

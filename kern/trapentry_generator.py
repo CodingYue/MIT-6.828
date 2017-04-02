@@ -29,7 +29,8 @@ print "/* handlers */"
 for i in xrange(256):
   print ".globl trap_vector%d" % i
   print "trap_vector%d:" % i
-  print " pushl $0;"
+  if not (i == 8 or (i >= 10 and i <= 14) or i == 17 or i == 30):
+    print " pushl $0;"
   print " pushl $%d;" % i
   print " jmp _alltraps\n"
 

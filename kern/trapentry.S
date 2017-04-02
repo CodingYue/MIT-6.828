@@ -76,7 +76,6 @@ trap_vector7:
 
 .globl trap_vector8
 trap_vector8:
- pushl $0;
  pushl $8;
  jmp _alltraps
 
@@ -88,31 +87,26 @@ trap_vector9:
 
 .globl trap_vector10
 trap_vector10:
- pushl $0;
  pushl $10;
  jmp _alltraps
 
 .globl trap_vector11
 trap_vector11:
- pushl $0;
  pushl $11;
  jmp _alltraps
 
 .globl trap_vector12
 trap_vector12:
- pushl $0;
  pushl $12;
  jmp _alltraps
 
 .globl trap_vector13
 trap_vector13:
- pushl $0;
  pushl $13;
  jmp _alltraps
 
 .globl trap_vector14
 trap_vector14:
- pushl $0;
  pushl $14;
  jmp _alltraps
 
@@ -130,7 +124,6 @@ trap_vector16:
 
 .globl trap_vector17
 trap_vector17:
- pushl $0;
  pushl $17;
  jmp _alltraps
 
@@ -208,7 +201,6 @@ trap_vector29:
 
 .globl trap_vector30
 trap_vector30:
- pushl $0;
  pushl $30;
  jmp _alltraps
 
