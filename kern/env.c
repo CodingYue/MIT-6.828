@@ -336,29 +336,36 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  to make sure that the environment starts executing there.
 	//  What?  (See env_run() and env_pop_tf() below.)
 
-	struct Proghdr *ph, *eph;
 	struct Elf *elfhdr = (struct Elf *) binary;
+	
+	struct Proghdr *ph, *eph;
 	ph = (struct Proghdr *) ((uint8_t *) elfhdr + elfhdr->e_phoff);
 	eph = ph + elfhdr->e_phnum;
 	for (; ph < eph; ph++) {
 		if (ph->p_type == ELF_PROG_LOAD) {
 			region_alloc(e, (void *) ph->p_va, ph->p_memsz);
-			
+
+			#define min(a, b) ((a) < (b) ? (a) : (b))
 			size_t size;
 			for (size = 0; size < ph->p_filesz; ) {
 				void *va = (void *) ph->p_va + size;
 				void *src = binary + ph->p_offset + size;
-				struct PageInfo * pp = page_lookup(e->env_pgdir, va, 0);
+				struct PageInfo *pp = page_lookup(e->env_pgdir, va, 0);
 				if (pp == NULL) {
 					panic("wrong page");
 				}
 				void *dst = page2kva(pp) + (va - ROUNDDOWN(va, PGSIZE));
-				#define min(a, b) ((a) < (b) ? (a) : (b))
+				
 				size_t copy_size = min(ROUNDUP(va+1, PGSIZE) - va, ph->p_filesz - size);
 				memcpy(dst, src, copy_size);
-				memset(page2kva(pp), 0, va - ROUNDDOWN(va, PGSIZE));
-				memset(dst + copy_size, 0, ROUNDUP(va + copy_size, PGSIZE) - (va + copy_size));
 				size += copy_size;
+			}
+			for (; size < ph->p_memsz; ) {
+				void *va = (void *) ph->p_va + size;
+				size_t clear_size = min(ROUNDUP(va+1, PGSIZE) - va, ph->p_memsz-size);
+				struct PageInfo *pp = page_lookup(e->env_pgdir, va, 0);
+				memset(page2kva(pp) + (va - ROUNDDOWN(va, PGSIZE)), 0, clear_size);
+				size += clear_size;
 			}
 		}
 	}
