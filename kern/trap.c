@@ -70,6 +70,7 @@ trap_init(void)
 	for (int i = 0; i < 256; ++i) {
 		SETGATE(idt[i], false, GD_KT, trap_vector[i], 0);
 	}
+	SETGATE(idt[T_BRKPT], false, GD_KT, trap_vector[T_BRKPT], 3);
 	SETGATE(idt[T_SYSCALL], false, GD_KT, trap_vector[T_SYSCALL], 3);
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -155,8 +156,11 @@ trap_dispatch(struct Trapframe *tf)
 		case T_PGFLT:
 			page_fault_handler(tf);
 			return;
+		case T_BRKPT:
+			monitor(tf);
+			return;
 		default:
-		break;
+			break;
 	}
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
