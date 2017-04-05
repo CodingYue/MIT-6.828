@@ -11,7 +11,7 @@
 /qemu.out
 /qemu.log
 /gradelib.pyc
-/lab?-handin.tar.gz
+/lab*-handin.tar.gz
 /lab?/
 /sol?/
 /myapi.key
@@ -31,3 +31,4 @@
 /xv6-public/*kernelmemfs
 /xv6-public/*mkfs
 /xv6-public/*.gdbinit
+/.suf
