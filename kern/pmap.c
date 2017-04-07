@@ -598,10 +598,8 @@ mmio_map_region(physaddr_t pa, size_t size)
 	}
 	uintptr_t begin_va = base;
 	physaddr_t pa_end = pa+size;
-	for (; pa < pa_end; pa += PGSIZE, base += PGSIZE) {
-		struct PageInfo *pp = pa2page(pa);
-		page_insert(kern_pgdir, pp, (void *) base, PTE_PCD|PTE_PWT|PTE_W|PTE_P);
-	}
+	boot_map_region(kern_pgdir, base, size, pa, PTE_PCD | PTE_PWT | PTE_W | PTE_P);
+	base += size;
 	return (void *) begin_va;
 }
 
