@@ -272,8 +272,10 @@ mem_init_mp(void)
 	//             Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	//
-	// LAB 4: Your code here:
-
+	for (int i = 0; i < NCPU; ++i) {
+		uint32_t kstack_top = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+		boot_map_region(kern_pgdir, kstack_top-KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);
+	}
 }
 
 // --------------------------------------------------------------
@@ -316,9 +318,11 @@ page_init(void)
 	page_free_list = NULL;
 	size_t i;
 	for (i = 1; i < IOPHYSMEM / PGSIZE; i++) {
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		if (page2pa(pages + i) != MPENTRY_PADDR) {
+			pages[i].pp_ref = 0;
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+		}
 	}
 	for (i = (next_free - KERNBASE) / PGSIZE; i < npages; i++) {
 		pages[i].pp_ref = 0;
@@ -588,7 +592,17 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	size = ROUNDUP(size, PGSIZE);
+	if (base + size > MMIOLIM) {
+		panic("mmio map region overflow MMIOLIM");
+	}
+	uintptr_t begin_va = base;
+	physaddr_t pa_end = pa+size;
+	for (; pa < pa_end; pa += PGSIZE, base += PGSIZE) {
+		struct PageInfo *pp = pa2page(pa);
+		page_insert(kern_pgdir, pp, (void *) base, PTE_PCD|PTE_PWT|PTE_W|PTE_P);
+	}
+	return (void *) begin_va;
 }
 
 static uintptr_t user_mem_check_addr;
