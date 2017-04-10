@@ -190,11 +190,14 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
-
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		return;
+	}
 
 	// Handle processor exceptions.
 	struct PushRegs *regs = &tf->tf_regs;
-	print_trapframe(tf);
+	
 	switch (tf->tf_trapno) {
 		case T_PGFLT:
 			page_fault_handler(tf);
@@ -245,6 +248,7 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
