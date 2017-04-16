@@ -40,6 +40,7 @@ sched_yield(void)
 				env_run(&envs[i]);
 			}
 		}
+		env_run(curenv);
 	}
 
 	// sched_halt never returns
