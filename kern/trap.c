@@ -292,7 +292,7 @@ page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
-
+	
 	// LAB 3: Your code here.
 	if (tf->tf_cs == GD_KT) {
 		panic("kernel generate page fault");
@@ -330,14 +330,15 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	if (curenv->env_pgfault_upcall) {
+		uint32_t esp = tf->tf_esp;
 		uint32_t exception_esp;
-		tf->tf_esp -= 4;
-		*(uint32_t *) tf->tf_esp = tf->tf_eip;
 		if (tf->tf_esp >= UXSTACKTOP-PGSIZE && tf->tf_esp < UXSTACKTOP) {
 			exception_esp = tf->tf_esp;
+			exception_esp -= 4; // blank word
 		} else {
 			exception_esp = UXSTACKTOP;
 		}
+
 		exception_esp -= sizeof(struct UTrapframe);
 
 		user_mem_assert(curenv, (void *) exception_esp, 

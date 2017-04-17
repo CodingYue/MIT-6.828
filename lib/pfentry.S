@@ -37,6 +37,12 @@ _pgfault_upcall:
 	movl _pgfault_handler, %eax
 	call *%eax
 	addl $4, %esp			// pop function argument
+
+	movl 0x28(%esp), %eax
+	movl 0x30(%esp), %ebx
+	subl $4, %ebx
+	movl %ebx, 0x30(%esp)
+	movl %eax, (%ebx)
 	
 	// Now the C page fault handler has returned and you must return
 	// to the trap time state.

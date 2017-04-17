@@ -412,7 +412,7 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	pde_t *pde = pgdir + PDX(va);
-	if (!(*pde & 1)) {
+	if ((*pde & PTE_P) == 0) {
 		if (!create) {
 			return NULL;
 		} else {

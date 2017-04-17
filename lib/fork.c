@@ -7,11 +7,6 @@
 // It is one of the bits explicitly allocated to user processes (PTE_AVAIL).
 #define PTE_COW		0x800
 
-static pte_t *get_pte(uint32_t va) {
-	pde_t pde = uvpd[PDX(va) * 4];
-
-}
-
 //
 // Custom page fault handler - if faulting page is copy-on-write,
 // map in our own private writable copy.
@@ -29,17 +24,25 @@ pgfault(struct UTrapframe *utf)
 	//   Use the read-only page table mappings at uvpt
 	//   (see <inc/memlayout.h>).
 
-	// LAB 4: Your code here.
+	unsigned pn = (unsigned) addr / PGSIZE;
+	pte_t pte = uvpt[pn];
+	if ((utf->utf_err & FEC_WR) == 0 || (pte & PTE_COW) == 0) {
+		panic("pgfault handler failed");
+	}
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
 	// Hint:
 	//   You should make three system calls.
-
-	// LAB 4: Your code here.
-
-	panic("pgfault not implemented");
+	addr = (void *) (pn * PGSIZE);
+	if ((r = sys_page_map(0, addr, 0, UTEMP, PTE_P|PTE_U)) < 0)
+		panic("sys_page_map: %e", r);
+	if ((r = sys_page_alloc(0, addr, PTE_P|PTE_U|PTE_W)) < 0)
+		panic("sys_page_alloc: %e", r);
+	memmove(addr, UTEMP, PGSIZE);
+	if ((r = sys_page_unmap(0, UTEMP)) < 0)
+		panic("sys_page_unmap: %e", r);
 }
 
 //
@@ -57,10 +60,18 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int rtn;
-
-	// if ((rtn = sys_page_map(thisenv->env_id, pn * PGSIZE, envid, pn * PGSIZE))) {
-		
-	// }
+	if ((uvpd[pn >> 10] & PTE_P) != 0) {
+		pte_t pte = uvpt[pn];
+		void *addr = (void *) (pn * PGSIZE);
+		if ((pte & PTE_W) != 0 || (pte & PTE_COW) != 0) {
+			if ((rtn = sys_page_map(0, addr, envid, addr, PTE_COW | PTE_U | PTE_P)) < 0) {
+				return rtn;
+			}
+			if ((rtn = sys_page_map(0, addr, 0, addr, PTE_COW | PTE_U | PTE_P))) {
+				return rtn;
+			}
+		}
+	}
 	
 	return 0;
 }
@@ -81,9 +92,11 @@ duppage(envid_t envid, unsigned pn)
 //   Neither user exception stack should ever be marked copy-on-write,
 //   so you must allocate a new page for the child's user exception stack.
 //
+extern void _pgfault_upcall(void);
 envid_t
 fork(void)
 {
+	set_pgfault_handler(&pgfault);
 
 	envid_t envid = sys_exofork();
 	if (envid < 0) {
@@ -95,10 +108,13 @@ fork(void)
 		return 0;
 	}
 	uint8_t *addr;
-	for (addr = (uint8_t*) UTEXT; addr < (uint8_t*) UTOP; addr += PGSIZE) {
+
+	for (addr = (uint8_t*) UTEXT; addr < (uint8_t*) USTACKTOP; addr += PGSIZE) {
 		duppage(envid, (unsigned) addr / PGSIZE);
 	}
-	duppage(envid, (unsigned) ROUNDDOWN(&addr, PGSIZE) / PGSIZE);
+
+	sys_page_alloc(envid, (void*) (UXSTACKTOP-PGSIZE), PTE_U|PTE_P|PTE_W);
+	sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
 
 	int rtn;
 	if ((rtn = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) {
@@ -106,7 +122,6 @@ fork(void)
 	}
 
 	return envid;
-
 }
 
 // Challenge!
