@@ -7,6 +7,11 @@
 // It is one of the bits explicitly allocated to user processes (PTE_AVAIL).
 #define PTE_COW		0x800
 
+static pte_t *get_pte(uint32_t va) {
+	pde_t pde = uvpd[PDX(va) * 4];
+
+}
+
 //
 // Custom page fault handler - if faulting page is copy-on-write,
 // map in our own private writable copy.
@@ -51,10 +56,12 @@ pgfault(struct UTrapframe *utf)
 static int
 duppage(envid_t envid, unsigned pn)
 {
-	int r;
+	int rtn;
 
-	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	// if ((rtn = sys_page_map(thisenv->env_id, pn * PGSIZE, envid, pn * PGSIZE))) {
+		
+	// }
+	
 	return 0;
 }
 
@@ -77,8 +84,29 @@ duppage(envid_t envid, unsigned pn)
 envid_t
 fork(void)
 {
-	// LAB 4: Your code here.
-	panic("fork not implemented");
+
+	envid_t envid = sys_exofork();
+	if (envid < 0) {
+		panic("sys_exofork: %e", envid);
+	}
+	if (envid == 0) {
+		// child process
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+	uint8_t *addr;
+	for (addr = (uint8_t*) UTEXT; addr < (uint8_t*) UTOP; addr += PGSIZE) {
+		duppage(envid, (unsigned) addr / PGSIZE);
+	}
+	duppage(envid, (unsigned) ROUNDDOWN(&addr, PGSIZE) / PGSIZE);
+
+	int rtn;
+	if ((rtn = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) {
+		panic("sys_env_set_status: %e", rtn);
+	}
+
+	return envid;
+
 }
 
 // Challenge!
