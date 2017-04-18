@@ -12,6 +12,17 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 
+static int
+check_perm(int perm) {
+	if ((perm & (PTE_P | PTE_U)) != (PTE_P | PTE_U)) {
+		return -E_INVAL;
+	}
+	if ((perm ^ (perm & PTE_SYSCALL)) != 0) {
+		return -E_INVAL;
+	}
+	return 0;
+}
+
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -163,25 +174,21 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	//   If page_insert() fails, remember to free the page you
 	//   allocated!
 
-	if ((perm & (PTE_P | PTE_U)) != (PTE_P | PTE_U)) {
-		return -E_INVAL;
-	}
-	if ((perm ^ (perm & PTE_SYSCALL)) != 0) {
-		return -E_INVAL;
-	}
-
 	struct Env *env;
-	int ret = envid2env(envid, &env, true);
-	if (ret < 0) {
-		return ret;
+	int rtn;
+	if ((rtn = check_perm(perm)) < 0) {
+		return rtn;
+	}
+	if ((rtn = envid2env(envid, &env, true)) < 0) {	
+		return rtn;
 	}
 	struct PageInfo *pp = page_alloc(ALLOC_ZERO);
 	if (pp == NULL) {
 		return -E_NO_MEM;
 	}
-	if ((ret = page_insert(env->env_pgdir, pp, va, perm)) < 0) {
+	if ((rtn = page_insert(env->env_pgdir, pp, va, perm)) < 0) {
 		page_free(pp);
-		return ret;
+		return rtn;
 	}
 	return 0;
 }
@@ -212,30 +219,29 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	//   parameters for correctness.
 	//   Use the third argument to page_lookup() to
 	//   check the current permissions on the page.
-	if ((perm & (PTE_P | PTE_U)) != (PTE_P | PTE_U)) {
-		return -E_INVAL;
+	int rtn;
+	if ((rtn = check_perm(perm)) < 0) {
+		return rtn;
 	}
-	if ((perm ^ (perm & PTE_SYSCALL)) != 0) {
-		return -E_INVAL;
-	}
+
 	if ((uint32_t) srcva >= UTOP || (uint32_t) srcva % PGSIZE != 0) {
 		return -E_INVAL;
 	}
 	struct Env *srcenv, *dstenv;
-	int ret;
-	if ((ret = envid2env(srcenvid, &srcenv, true)) < 0) {
-		return ret;
+	
+	if ((rtn = envid2env(srcenvid, &srcenv, true)) < 0) {
+		return rtn;
 	}
-	if ((ret = envid2env(dstenvid, &dstenv, true)) < 0) {
-		return ret;
+	if ((rtn = envid2env(dstenvid, &dstenv, true)) < 0) {
+		return rtn;
 	}
 	pte_t *pte;
 	struct PageInfo *pp = page_lookup(srcenv->env_pgdir, srcva, &pte);
 	if (pp == NULL || ((perm & PTE_W) == PTE_W && (*pte & PTE_W) == 0)) {
 		return -E_INVAL;
 	}
-	if ((ret = page_insert(dstenv->env_pgdir, pp, dstva, perm)) <0) {
-		return ret;
+	if ((rtn = page_insert(dstenv->env_pgdir, pp, dstva, perm)) <0) {
+		return rtn;
 	}
 	return 0;
 }
@@ -304,8 +310,34 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
-	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	int rtn;
+	struct Env* env;
+	if ((rtn = envid2env(envid, &env, false)) < 0) {
+		return rtn;
+	}
+	if (!env->env_ipc_recving) {
+		return -E_IPC_NOT_RECV;
+	}
+	uint32_t va = (uint32_t) srcva;
+	pte_t *pte;
+	struct PageInfo *pp = page_lookup(curenv->env_pgdir, srcva, &pte);
+	if (va < UTOP) {
+		if (va % PGSIZE != 0 || pp == NULL || (perm & PTE_W) != (*pte & PTE_W)) {
+			return -E_INVAL;
+		}
+		if ((rtn = check_perm(perm)) < 0) {
+			return rtn;
+		}
+	}
+	if ((rtn = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0) {
+		return rtn;
+	}
+	env->env_ipc_recving = 0;
+	env->env_ipc_from = curenv->env_id;
+	env->env_ipc_perm = perm;
+	env->env_ipc_value = value;
+	env->env_status = ENV_RUNNABLE;
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -322,8 +354,19 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 static int
 sys_ipc_recv(void *dstva)
 {
-	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	struct Env *env;
+	int rtn;
+	if ((rtn = envid2env(0, &env, false)) < 0) {
+		return rtn;
+	}
+	if ((uint32_t) dstva < UTOP && (uint32_t) dstva % PGSIZE != 0) {
+		return -E_INVAL;
+	}
+	env->env_ipc_recving = true;
+	env->env_ipc_dstva = dstva;
+	env->env_status = ENV_NOT_RUNNABLE;
+	env->env_tf.tf_regs.reg_eax = 0;
+	sched_yield();
 	return 0;
 }
 
@@ -358,6 +401,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_env_set_status(a1, a2);
 	case SYS_env_set_pgfault_upcall:
 		return sys_env_set_pgfault_upcall(a1, (void *) a2);
+	case SYS_ipc_try_send:
+		return sys_ipc_try_send(a1, a2, (void *) a3, a4);
+	case SYS_ipc_recv:
+		return sys_ipc_recv((void *) a1);
 	default:
 		return -E_INVAL;
 	}
