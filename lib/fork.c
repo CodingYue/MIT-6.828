@@ -36,12 +36,12 @@ pgfault(struct UTrapframe *utf)
 	// Hint:
 	//   You should make three system calls.
 	addr = (void *) (pn * PGSIZE);
-	if ((r = sys_page_map(0, addr, 0, UTEMP, PTE_P|PTE_U)) < 0)
+	if ((r = sys_page_map(0, addr, 0, PFTEMP, PTE_P|PTE_U)) < 0)
 		panic("sys_page_map: %e", r);
 	if ((r = sys_page_alloc(0, addr, PTE_P|PTE_U|PTE_W)) < 0)
 		panic("sys_page_alloc: %e", r);
-	memmove(addr, UTEMP, PGSIZE);
-	if ((r = sys_page_unmap(0, UTEMP)) < 0)
+	memmove(addr, PFTEMP, PGSIZE);
+	if ((r = sys_page_unmap(0, PFTEMP)) < 0)
 		panic("sys_page_unmap: %e", r);
 }
 
