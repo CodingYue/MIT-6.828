@@ -11,10 +11,11 @@
 /qemu.out
 /qemu.log
 /gradelib.pyc
-/lab?-handin.tar.gz
+/lab*-handin.tar.gz
 /lab?/
 /sol?/
 /myapi.key
+/.suf
 */xv6-public/*~
 */xv6-public/*_*
 */xv6-public/*.o
