@@ -40,8 +40,11 @@ sched_yield(void)
 				env_run(&envs[i]);
 			}
 		}
-		env_run(curenv);
+		if (curenv->env_status != ENV_NOT_RUNNABLE) {
+			env_run(curenv);
+		}
 	}
+
 
 	// sched_halt never returns
 	sched_halt();
