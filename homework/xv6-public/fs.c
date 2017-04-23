@@ -351,12 +351,71 @@ iunlockput(struct inode *ip)
 
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
+// static uint
+// bmap(struct inode *ip, uint bn)
+// {
+//   uint addr, *a;
+//   struct buf *bp;
+//   cprintf("bn %d, addr %x\n", bn, ip->addrs[bn]);
+//   if(bn < NDIRECT-1){
+//     if((addr = ip->addrs[bn]) == 0)
+//       ip->addrs[bn] = addr = balloc(ip->dev);
+//     return addr;
+//   }
+//   bn -= NDIRECT-1;
+
+//   if(bn < NINDIRECT){
+//     // Load indirect block, allocating if necessary.
+//     if((addr = ip->addrs[NDIRECT-1]) == 0)
+//       ip->addrs[NDIRECT-1] = addr = balloc(ip->dev);
+//     bp = bread(ip->dev, addr);
+//     a = (uint*)bp->data;
+//     if((addr = a[bn]) == 0){
+//       a[bn] = addr = balloc(ip->dev);
+//       log_write(bp);
+//     }
+//     brelse(bp);
+//     return addr;
+//   }
+//   bn -= NINDIRECT;
+//   panic("");
+//   if (bn < NINDIRECT * NINDIRECT) {
+//     uint block = bn / NINDIRECT;
+//     uint offset = bn % NINDIRECT;
+//     if ((addr = ip->addrs[NDIRECT]) == 0) {
+//       addr = balloc(ip->dev);
+//       ip->addrs[NDIRECT] = addr;
+//     }
+//     bp = bread(ip->dev, addr);
+//     a = (uint*) bp->data;
+//     if ((addr = a[block]) == 0) {
+//       addr = balloc(ip->dev);
+//       a[block] = addr;
+//       log_write(bp);
+//     }
+//     brelse(bp);
+
+//     bp = bread(ip->dev, addr);
+//     a = (uint*) bp->data;
+//     if ((addr = a[offset]) == 0) {
+//       addr = balloc(ip->dev);
+//       a[offset] = addr;
+//       log_write(bp);
+//     } 
+//     brelse(bp);
+//     return addr;
+//   }
+
+//   panic("bmap: out of range");
+// }
+
 static uint
 bmap(struct inode *ip, uint bn)
 {
   uint addr, *a;
   struct buf *bp;
-
+  
+  cprintf("bn %d, addr %x\n", bn, ip->addrs[bn]);
   if(bn < NDIRECT){
     if((addr = ip->addrs[bn]) == 0)
       ip->addrs[bn] = addr = balloc(ip->dev);
