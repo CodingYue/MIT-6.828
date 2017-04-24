@@ -343,9 +343,9 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		if ((rtn = check_perm(perm)) < 0) {
 			return rtn;
 		}
-	}
-	if ((rtn = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0) {
-		return rtn;
+		if ((rtn = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0) {
+			return rtn;
+		}
 	}
 	env->env_ipc_recving = 0;
 	env->env_ipc_from = curenv->env_id;

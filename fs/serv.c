@@ -221,8 +221,8 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	if ((r = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset)) < 0) {
 		return r;
 	}
-	
-	return 0;
+	o->o_fd->fd_offset += r;
+	return r;
 }
 
 

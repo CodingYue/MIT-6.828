@@ -639,7 +639,6 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 			user_mem_check_addr = (uint32_t) dst;
 			return -E_FAULT;
 		}
-		#define min(a, b) ((a) < (b) ? (a) : (b))
 		size += (ROUNDUP(dst+1, PGSIZE) - dst);
 	}
 
