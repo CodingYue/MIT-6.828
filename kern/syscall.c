@@ -239,7 +239,8 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return rtn;
 	}
 
-	if ((uint32_t) srcva >= UTOP || (uint32_t) srcva % PGSIZE != 0) {
+	if ((uint32_t) srcva >= UTOP || (uint32_t) srcva % PGSIZE != 0
+			 || (uint32_t) dstva >= UTOP || (uint32_t) dstva % PGSIZE != 0) {
 		return -E_INVAL;
 	}
 	struct Env *srcenv, *dstenv;
