@@ -139,11 +139,22 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 {
 	// Remember to check whether the user has supplied us with a good
 	// address!
+	user_mem_assert(curenv, tf, sizeof(struct Trapframe), PTE_W | PTE_P | PTE_U);
+
 	struct Env *env;
 	int r;
 	if ((r = envid2env(envid, &env, true)) < 0) {
 		return r;
 	}
+
+	tf->tf_ds |= 3;
+	tf->tf_es |= 3;
+	tf->tf_ss |= 3;
+	tf->tf_cs |= 3;
+
+	tf->tf_eflags |= FL_IF;
+	tf->tf_eflags &= ~FL_IOPL_MASK;
+
 	env->env_tf = *tf;
 	return 0;
 }
