@@ -411,6 +411,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// LAB 3: Your code here.
 
 	switch (syscallno) {
+	case SYS_cgetc:
+		return sys_cgetc();
 	case SYS_cputs:
 		sys_cputs((const char * ) a1, a2);
 		break;
@@ -418,9 +420,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_getenvid();
 	case SYS_env_destroy:
 		return sys_env_destroy(a1);
-	case SYS_yield:
-		sys_yield();
-		break;
 	case SYS_page_alloc:
 		return sys_page_alloc(a1, (void *) a2, a3);
 	case SYS_page_map:
@@ -431,10 +430,13 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_exofork();
 	case SYS_env_set_status:
 		return sys_env_set_status(a1, a2);
-	case SYS_env_set_pgfault_upcall:
-		return sys_env_set_pgfault_upcall(a1, (void *) a2);
 	case SYS_env_set_trapframe:
 		return sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2);
+	case SYS_env_set_pgfault_upcall:
+		return sys_env_set_pgfault_upcall(a1, (void *) a2);
+	case SYS_yield:
+		sys_yield();
+		break;
 	case SYS_ipc_try_send:
 		return sys_ipc_try_send(a1, a2, (void *) a3, a4);
 	case SYS_ipc_recv:
