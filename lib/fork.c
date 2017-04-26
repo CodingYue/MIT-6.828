@@ -63,6 +63,12 @@ duppage(envid_t envid, unsigned pn)
 	if ((uvpd[pn >> 10] & PTE_P) != 0) {
 		pte_t pte = uvpt[pn];
 		void *addr = (void *) (pn * PGSIZE);
+		if ((pte & PTE_SHARE) != 0) {
+			if ((rtn = sys_page_map(0, addr, envid, addr, pte & PTE_SYSCALL)) < 0) {
+				return rtn;
+			}
+			return 0;
+		}
 		if ((pte & PTE_W) != 0 || (pte & PTE_COW) != 0) {
 			if ((rtn = sys_page_map(0, addr, envid, addr, PTE_COW | PTE_U | PTE_P)) < 0) {
 				return rtn;
@@ -70,6 +76,10 @@ duppage(envid_t envid, unsigned pn)
 			if ((rtn = sys_page_map(0, addr, 0, addr, PTE_COW | PTE_U | PTE_P))) {
 				return rtn;
 			}
+			return 0;
+		}
+		if ((rtn = sys_page_map(0, addr, envid, addr, pte & PTE_SYSCALL)) < 0) {
+			return rtn;
 		}
 	}
 	
@@ -107,8 +117,8 @@ fork(void)
 		thisenv = &envs[ENVX(sys_getenvid())];
 		return 0;
 	}
-	uint8_t *addr;
 
+	uint8_t *addr;
 	for (addr = (uint8_t*) UTEXT; addr < (uint8_t*) USTACKTOP; addr += PGSIZE) {
 		duppage(envid, (unsigned) addr / PGSIZE);
 	}

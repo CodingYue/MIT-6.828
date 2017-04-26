@@ -67,10 +67,6 @@ sys_env_destroy(envid_t envid)
 
 	if ((r = envid2env(envid, &e, 1)) < 0)
 		return r;
-	if (e == curenv)
-		cprintf("[%08x] exiting gracefully\n", curenv->env_id);
-	else
-		cprintf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
 	env_destroy(e);
 	return 0;
 }
@@ -128,6 +124,38 @@ sys_env_set_status(envid_t envid, int status)
 		return ret;
 	}
 	env->env_status = status;
+	return 0;
+}
+
+// Set envid's trap frame to 'tf'.
+// tf is modified to make sure that user environments always run at code
+// protection level 3 (CPL 3) with interrupts enabled.
+//
+// Returns 0 on success, < 0 on error.  Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+static int
+sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
+{
+	// Remember to check whether the user has supplied us with a good
+	// address!
+	user_mem_assert(curenv, tf, sizeof(struct Trapframe), PTE_W | PTE_P | PTE_U);
+
+	struct Env *env;
+	int r;
+	if ((r = envid2env(envid, &env, true)) < 0) {
+		return r;
+	}
+
+	tf->tf_ds |= 3;
+	tf->tf_es |= 3;
+	tf->tf_ss |= 3;
+	tf->tf_cs |= 3;
+
+	tf->tf_eflags |= FL_IF;
+	tf->tf_eflags &= ~FL_IOPL_MASK;
+
+	env->env_tf = *tf;
 	return 0;
 }
 
@@ -227,7 +255,8 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return rtn;
 	}
 
-	if ((uint32_t) srcva >= UTOP || (uint32_t) srcva % PGSIZE != 0) {
+	if ((uint32_t) srcva >= UTOP || (uint32_t) srcva % PGSIZE != 0
+			 || (uint32_t) dstva >= UTOP || (uint32_t) dstva % PGSIZE != 0) {
 		return -E_INVAL;
 	}
 	struct Env *srcenv, *dstenv;
@@ -331,9 +360,9 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		if ((rtn = check_perm(perm)) < 0) {
 			return rtn;
 		}
-	}
-	if ((rtn = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0) {
-		return rtn;
+		if ((rtn = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) < 0) {
+			return rtn;
+		}
 	}
 	env->env_ipc_recving = 0;
 	env->env_ipc_from = curenv->env_id;
@@ -382,6 +411,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// LAB 3: Your code here.
 
 	switch (syscallno) {
+	case SYS_cgetc:
+		return sys_cgetc();
 	case SYS_cputs:
 		sys_cputs((const char * ) a1, a2);
 		break;
@@ -389,9 +420,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_getenvid();
 	case SYS_env_destroy:
 		return sys_env_destroy(a1);
-	case SYS_yield:
-		sys_yield();
-		break;
 	case SYS_page_alloc:
 		return sys_page_alloc(a1, (void *) a2, a3);
 	case SYS_page_map:
@@ -402,8 +430,13 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_exofork();
 	case SYS_env_set_status:
 		return sys_env_set_status(a1, a2);
+	case SYS_env_set_trapframe:
+		return sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2);
 	case SYS_env_set_pgfault_upcall:
 		return sys_env_set_pgfault_upcall(a1, (void *) a2);
+	case SYS_yield:
+		sys_yield();
+		break;
 	case SYS_ipc_try_send:
 		return sys_ipc_try_send(a1, a2, (void *) a3, a4);
 	case SYS_ipc_recv:

@@ -24,7 +24,7 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	int rtn;
 	if (pg == NULL) {
-		pg = (void *) UTEMP;
+		pg = (void *) UTOP;
 	}
 	if ((rtn = sys_ipc_recv(pg)) < 0) {
 		if (from_env_store) 
@@ -56,7 +56,7 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
 	int rtn;
 	if (pg == NULL) {
-		pg = (void *) UTEMP;
+		pg = (void *) UTOP;
 		perm = PTE_P | PTE_U;
 	}
 	while (true) {

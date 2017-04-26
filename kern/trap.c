@@ -177,23 +177,37 @@ print_regs(struct PushRegs *regs)
 
 static void
 trap_dispatch(struct Trapframe *tf)
-{
-	// Handle spurious interrupts
-	// The hardware sometimes raises these because of noise on the
-	// IRQ line or other reasons. We don't care.
-	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-		cprintf("Spurious interrupt on irq 7\n");
-		print_trapframe(tf);
-		return;
-	}
+{	
+	switch (tf->tf_trapno) {
 
-	// Handle clock interrupts. Don't forget to acknowledge the
-	// interrupt using lapic_eoi() before calling the scheduler!
-	// LAB 4: Your code here.
-	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
-		lapic_eoi();
-		sched_yield();
-		return;
+		// Handle spurious interrupts
+		// The hardware sometimes raises these because of noise on the
+		// IRQ line or other reasons. We don't care.
+		case IRQ_OFFSET + IRQ_SPURIOUS:
+			cprintf("Spurious interrupt on irq 7\n");
+			print_trapframe(tf);
+			return;
+
+		// Handle keyboard and serial interrupts.
+		case IRQ_OFFSET + IRQ_KBD:
+			kbd_intr();
+			lapic_eoi();
+			return;
+
+		case IRQ_OFFSET + IRQ_SERIAL:
+			serial_intr();
+			lapic_eoi();
+			return;
+
+		// Handle clock interrupts. Don't forget to acknowledge the
+		// interrupt using lapic_eoi() before calling the scheduler!
+		case IRQ_OFFSET + IRQ_TIMER:
+			lapic_eoi();
+			sched_yield();
+			return;
+
+		default:
+			break;
 	}
 
 	// Handle processor exceptions.
@@ -203,18 +217,22 @@ trap_dispatch(struct Trapframe *tf)
 		case T_PGFLT:
 			page_fault_handler(tf);
 			return;
+
 		case T_BRKPT:
 			monitor(tf);
 			return;
+
 		case T_SYSCALL:
 			regs->reg_eax = syscall(regs->reg_eax, regs->reg_edx, regs->reg_ecx, 
 					regs->reg_ebx, regs->reg_edi, regs->reg_esi);
 			return;
+
 		default:
 			break;
 	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
+	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {
@@ -310,13 +328,14 @@ page_fault_handler(struct Trapframe *tf)
 	// we branch to the page fault upcall recursively, pushing another
 	// page fault stack frame on top of the user exception stack.
 	//
-	// The trap handler needs one word of scratch space at the top of the
-	// trap-time stack in order to return.  In the non-recursive case, we
-	// don't have to worry about this because the top of the regular user
-	// stack is free.  In the recursive case, this means we have to leave
-	// an extra word between the current top of the exception stack and
-	// the new stack frame because the exception stack _is_ the trap-time
-	// stack.
+	// It is convenient for our code which returns from a page fault
+	// (lib/pfentry.S) to have one word of scratch space at the top of the
+	// trap-time stack; it allows us to more easily restore the eip/esp. In
+	// the non-recursive case, we don't have to worry about this because
+	// the top of the regular user stack is free.  In the recursive case,
+	// this means we have to leave an extra word between the current top of
+	// the exception stack and the new stack frame because the exception
+	// stack _is_ the trap-time stack.
 	//
 	// If there's no page fault upcall, the environment didn't allocate a
 	// page for its exception stack or can't write to it, or the exception
