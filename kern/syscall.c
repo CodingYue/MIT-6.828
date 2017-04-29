@@ -11,6 +11,7 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <kern/time.h>
 
 static int
 check_perm(int perm) {
@@ -400,6 +401,14 @@ sys_ipc_recv(void *dstva)
 	env->env_tf.tf_regs.reg_eax = 0;
 	sched_yield();
 	return 0;
+}
+
+// Return the current time.
+static int
+sys_time_msec(void)
+{
+	// LAB 6: Your code here.
+	panic("sys_time_msec not implemented");
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
